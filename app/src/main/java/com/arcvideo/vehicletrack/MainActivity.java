@@ -66,6 +66,8 @@ public class MainActivity extends AppCompatActivity {
     private List<PresentationPlayer> presentationList = new ArrayList<>();
     private DisplayPlugListener displayPlugListener = null;
     private Context mContext;
+    public static Object lock = new Object();
+    private boolean FIRST_CREATE = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -109,19 +111,22 @@ public class MainActivity extends AppCompatActivity {
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                initMainVideoView();
-                initPresentationVideoView();
-                handler.sendEmptyMessage(START_SYNC_THREAD);
-                HDMI_FIRST_RECEIVE = false;
-                DP_FIRST_RECEIVE = false;
+                synchronized (lock){
+                    if (FIRST_CREATE) {
+                        initMainVideoView();
+                        initPresentationVideoView();
+                        handler.sendEmptyMessage(START_SYNC_THREAD);
+                        HDMI_FIRST_RECEIVE = false;
+                        DP_FIRST_RECEIVE = false;
+                        FIRST_CREATE = false;
+                    }
+                }
             }
         }, 300);
     }
     private void initMainVideoView(){
         relativeLayout = findViewById(R.id.display);
-        if (videoView == null) {
-            videoView = new VideoView(this);
-        }
+        videoView = new VideoView(this);
         if (relativeLayout.getChildCount() == 0){
             relativeLayout.addView(videoView);
         }
@@ -158,6 +163,7 @@ public class MainActivity extends AppCompatActivity {
         }
         if (DP_ORDER != -1) {
             PresentationPlayer presentationPlayer = new PresentationPlayer(mContext, screens[DP_ORDER], false);
+            presentationList.add(presentationPlayer);
         }
     }
 
