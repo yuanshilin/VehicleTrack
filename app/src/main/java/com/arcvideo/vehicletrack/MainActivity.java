@@ -51,10 +51,12 @@ public class MainActivity extends AppCompatActivity {
     public final int START_SYNC_THREAD = 223;
     // HDMI 插拔状态
     private boolean HDMI_PLUGGED = false;
+    private boolean HDMI_FIRST_RECEIVE = true;
     // 记录 HDMI 数组下标
     private int HDMI_ORDER = -1;
     // DP 插拔状态
     private boolean DP_PLUGGED = false;
+    private boolean DP_FIRST_RECEIVE = true;
     // 记录 DP 数组下标
     private int DP_ORDER = -1;
     private RelativeLayout relativeLayout;
@@ -110,6 +112,8 @@ public class MainActivity extends AppCompatActivity {
                 initMainVideoView();
                 initPresentationVideoView();
                 handler.sendEmptyMessage(START_SYNC_THREAD);
+                HDMI_FIRST_RECEIVE = false;
+                DP_FIRST_RECEIVE = false;
             }
         }, 300);
     }
@@ -146,12 +150,14 @@ public class MainActivity extends AppCompatActivity {
     private void initPresentationVideoView(){
         Display[] screens = ArcPresentation.getPresentationDisplays(this);
         judgeDisplayId(screens);
-        int screenslength = screens.length;
-        for (int i=0; i<screenslength; i++){
-            Log.d(TAG, "initPresentationVideoView: display id is "+screens[i].getDisplayId()+
-                    ", name is "+screens[i].getName()+", is HDMI:"+(screenslength>1 && i>0));
-            PresentationPlayer presentationPlayer = new PresentationPlayer(mContext, screens[i], (i == HDMI_ORDER) || (DP_ORDER == -1));
+        Log.d(TAG, "initPresentationVideoView: HDMI is plugged:"+HDMI_PLUGGED+", HDMI order is "+HDMI_ORDER+
+                ", DP is plugged:"+DP_PLUGGED+", DP order is "+DP_ORDER);
+        if (HDMI_ORDER != -1){
+            PresentationPlayer presentationPlayer = new PresentationPlayer(mContext, screens[HDMI_ORDER], true);
             presentationList.add(presentationPlayer);
+        }
+        if (DP_ORDER != -1) {
+            PresentationPlayer presentationPlayer = new PresentationPlayer(mContext, screens[DP_ORDER], false);
         }
     }
 
@@ -164,14 +170,19 @@ public class MainActivity extends AppCompatActivity {
                 Point point = new Point();
                 screens[i].getRealSize(point);
                 if (point.x > 3840){
-                    DP_ORDER = i;
+                    if (DP_PLUGGED) DP_ORDER = i;
                 }
             }
-            if (DP_ORDER == -1){
-                DP_ORDER = screens.length -1;
+            if (DP_PLUGGED) {
+                if (DP_ORDER == -1) {
+                    DP_ORDER = screens.length -1;
+                    HDMI_ORDER = 0;
+                }else{
+                    HDMI_ORDER = screens.length - 1 - DP_ORDER;
+                }
+            } else {
                 HDMI_ORDER = 0;
-            }else{
-                HDMI_ORDER = screens.length - 1 - DP_ORDER;
+                DP_ORDER = -1;
             }
         }
     }
@@ -296,8 +307,6 @@ public class MainActivity extends AppCompatActivity {
         private final String TAG = "DisplayPlugListener";
         private final String PORT_PLUG_STATE = "state";
         private final String EXTRA_MULTI_DP_PLUGGED_NAME = "extcon_name";
-        private boolean HDMI_FIRST_RECEIVE = true;
-        private boolean DP_FIRST_RECEIVE = true;
         @Override
         public void onReceive(Context context, Intent intent) {
             Log.d(TAG, "DisplayPlugListener onReceive: get broadcast info is "+intent.getAction());
