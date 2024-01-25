@@ -114,8 +114,8 @@ public class MainActivity extends AppCompatActivity {
                 synchronized (lock){
                     if (FIRST_CREATE) {
                         initMainVideoView();
-                        initPresentationVideoView();
-                        handler.sendEmptyMessage(START_SYNC_THREAD);
+//                        initPresentationVideoView();
+//                        handler.sendEmptyMessage(START_SYNC_THREAD);
                         HDMI_FIRST_RECEIVE = false;
                         DP_FIRST_RECEIVE = false;
                         FIRST_CREATE = false;
