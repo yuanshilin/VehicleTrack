@@ -29,6 +29,7 @@ import android.widget.RelativeLayout;
 import android.widget.Toast;
 import android.widget.VideoView;
 
+import com.arcvideo.vehicletrack.arccontrol.ArcControlCenter;
 import com.arcvideo.vehicletrack.bean.PresentationData;
 import com.arcvideo.vehicletrack.presentation.ArcPresentation;
 
@@ -43,6 +44,7 @@ import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
     private final String TAG = "VehicleTrackActivity";
+    private final boolean multiScreen = false;
     private final String HDMI_PLUGGED_BROADCAST = "android.intent.action.HDMI_PLUGGED";
     // 安卓低版本需要使用 android.intent.action.HDMISTATUS_CHANGED 来监听hdmi的插拔事件
     private final String HDMI_CHANGED_BROADCAST = "android.intent.action.HDMISTATUS_CHANGED";
@@ -68,6 +70,7 @@ public class MainActivity extends AppCompatActivity {
     private Context mContext;
     public static Object lock = new Object();
     private boolean FIRST_CREATE = true;
+    private ArcControlCenter arcControlCenter = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -107,6 +110,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initialized(){
+        int delaytime = 300;
+        if (!multiScreen) {
+            // 控制播放器和大屏终端同步播放
+            delaytime = 1000;
+            // 初始化播控终端
+            arcControlCenter = new ArcControlCenter(mContext);
+        }
         // 延迟等待 HDMI、DP 接口广播监听
         handler.postDelayed(new Runnable() {
             @Override
@@ -114,15 +124,17 @@ public class MainActivity extends AppCompatActivity {
                 synchronized (lock){
                     if (FIRST_CREATE) {
                         initMainVideoView();
-//                        initPresentationVideoView();
-//                        handler.sendEmptyMessage(START_SYNC_THREAD);
+                        if (multiScreen){
+                            initPresentationVideoView();
+                            handler.sendEmptyMessage(START_SYNC_THREAD);
+                        }
                         HDMI_FIRST_RECEIVE = false;
                         DP_FIRST_RECEIVE = false;
                         FIRST_CREATE = false;
                     }
                 }
             }
-        }, 300);
+        }, delaytime);
     }
     private void initMainVideoView(){
         relativeLayout = findViewById(R.id.display);
@@ -146,8 +158,25 @@ public class MainActivity extends AppCompatActivity {
         videoView.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
             @Override
             public void onPrepared(MediaPlayer mediaPlayer) {
-                mediaPlayer.setLooping(true);
+                if (multiScreen) {
+                    mediaPlayer.setLooping(true);
+                }
                 mediaPlayer.start();
+            }
+        });
+
+        videoView.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+            @Override
+            public void onCompletion(MediaPlayer mediaPlayer) {
+                if (!multiScreen) {
+                    arcControlCenter.startProgram();
+                    try {
+                        Thread.sleep(1200);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                    mediaPlayer.start();
+                }
             }
         });
     }
@@ -226,6 +255,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
+        if (!multiScreen) {
+            onDestroy();
+        }
         pause();
     }
 
@@ -275,6 +307,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (arcControlCenter != null) {
+            arcControlCenter.stopProgram();
+        }
         destroy();
     }
 
