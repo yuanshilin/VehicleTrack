@@ -10,6 +10,7 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.net.InetAddress;
 import java.util.List;
 
 import okhttp3.MediaType;
@@ -28,8 +29,35 @@ public class HttpUtils {
 //    private static final String BASE_URL = "http://172.17.22.58:6812";
     // 正式 IP 地址
     private static final String BASE_URL = "http://172.17.24.58:6812";
+    private static final String BASE_IP = "172.17.24.58";
+    private static boolean connected = false;
     private static Type programListType = new TypeToken<List<Program>>() {
     }.getType();
+
+    public static boolean isConnected(){
+        Thread validThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    connected = InetAddress.getByName(BASE_IP).isReachable(1500);
+                } catch (IOException e) {
+                    connected = false;
+                }
+                if (connected){
+                    Log.d(TAG, "isConnected: net init success.");
+                }else{
+                    Log.d(TAG, "isConnected: "+BASE_IP+" is unreached, please check the ip address or receiver device network status.");
+                }
+            }
+        });
+        validThread.start();
+        try {
+            validThread.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return connected;
+    }
 
     public static Response http(Request request) {
         try {

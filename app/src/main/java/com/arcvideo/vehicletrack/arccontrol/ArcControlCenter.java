@@ -2,6 +2,7 @@ package com.arcvideo.vehicletrack.arccontrol;
 
 import android.content.Context;
 import android.provider.Settings;
+import android.text.TextUtils;
 import android.util.Log;
 
 import java.util.ArrayList;
@@ -24,14 +25,24 @@ public class ArcControlCenter {
 
     private void initData(){
         ExecutorUtils.execute(() -> {
+            if (!HttpUtils.isConnected()){
+                return;
+            }
             getEndpoint(mContext);
-            getProgram(Long.valueOf(endpoint.getId()));
-            startProgram();
+            if (endpoint != null){
+                getProgram(Long.valueOf(endpoint.getId()));
+                startProgram();
+            }
         });
     }
 
     private void getEndpoint(Context context) {
         String ids = Settings.System.getString(context.getContentResolver(), "endpoint_ids");
+        if (TextUtils.isEmpty(ids)){
+            Log.d(TAG, "getEndpoint: system don't set endpoint_ids.");
+            endpoint = null;
+            return;
+        }
         if (ids.contains(",")){
             ids = Arrays.asList(ids.split(",")).get(0);
         }

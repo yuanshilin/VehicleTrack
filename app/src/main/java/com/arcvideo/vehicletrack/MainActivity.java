@@ -26,10 +26,12 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.RelativeLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.VideoView;
 
 import com.arcvideo.vehicletrack.arccontrol.ArcControlCenter;
+import com.arcvideo.vehicletrack.arccontrol.HttpUtils;
 import com.arcvideo.vehicletrack.bean.PresentationData;
 import com.arcvideo.vehicletrack.presentation.ArcPresentation;
 
@@ -51,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
     private final String DP_PLUGGED_BROADCAST = "android.intent.action.DP_PLUGGED";
     public static final int OVERLAY_REQUEST_RESULT_CODE = 222;
     public final int START_SYNC_THREAD = 223;
+    public final int START_NET_CHECK = 224;
     // HDMI 插拔状态
     private boolean HDMI_PLUGGED = false;
     private boolean HDMI_FIRST_RECEIVE = true;
@@ -162,6 +165,7 @@ public class MainActivity extends AppCompatActivity {
                     mediaPlayer.setLooping(true);
                 }
                 mediaPlayer.start();
+                handler.sendEmptyMessage(START_NET_CHECK);
             }
         });
 
@@ -179,6 +183,24 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+    }
+
+    private void NotifyNetWork(){
+        TextView notify = new TextView(this);
+        notify.setText("网络无连接");
+        notify.setTextSize(24);
+        relativeLayout.addView(notify);
+        RelativeLayout.LayoutParams lParams = (RelativeLayout.LayoutParams)notify.getLayoutParams();
+        lParams.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+        lParams.addRule(RelativeLayout.CENTER_HORIZONTAL);
+        lParams.bottomMargin = 30;
+        notify.setLayoutParams(lParams);
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                notify.setVisibility(View.GONE);
+            }
+        }, 3000);
     }
 
     private void initPresentationVideoView(){
@@ -410,11 +432,18 @@ public class MainActivity extends AppCompatActivity {
     private Handler handler = new Handler(){
         @Override
         public void handleMessage(@NonNull Message msg) {
-            if (msg.what == START_SYNC_THREAD){
-                initSyncThread();
-            }else{
-                PresentationData presentationData = (PresentationData)((Bundle)msg.obj).get("data");
-                CreatePresentation(presentationData.isPlugged(), presentationData.isHdmi());
+            switch (msg.what){
+                case START_SYNC_THREAD:
+                    initSyncThread();
+                    break;
+                case START_NET_CHECK:
+                    if (!HttpUtils.isConnected()){
+                        NotifyNetWork();
+                    }
+                    break;
+                default:
+                    PresentationData presentationData = (PresentationData)((Bundle)msg.obj).get("data");
+                    CreatePresentation(presentationData.isPlugged(), presentationData.isHdmi());
             }
         }
     };
